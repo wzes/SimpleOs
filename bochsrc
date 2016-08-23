@@ -1,8 +1,14 @@
 megs: 32 
 romimage: file=/usr/local/share/bochs/BIOS-bochs-latest
 vgaromimage: file=/usr/local/share/bochs/VGABIOS-lgpl-latest
+<<<<<<< HEAD
 floppya: 1_44=a.img, status=inserted
 boot: floppy
+=======
+floppya: 1_44=freedos.img, status=inserted
+floppyb: 1_44=pm.img, status=inserted
+boot: a
+>>>>>>> 2ee49122d5ab24fd479852a2b1bc7bd7ac65e138
 log: bochsout.txt
 mouse: enabled=0
 keyboard: keymap=/usr/local/share/bochs/keymaps/x11-pc-us.map
