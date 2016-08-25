@@ -1,4 +1,11 @@
 
+; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;                               boot.asm
+; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+;                                                     Forrest Yu, 2005
+; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 ;%define	_BOOT_DEBUG_	; 做 Boot Sector 时一定将此行注释掉!将此行打开后用 nasm Boot.asm -o Boot.com 做成一个.COM文件易于调试
 
 %ifdef	_BOOT_DEBUG_
@@ -14,39 +21,14 @@ BaseOfStack		equ	0100h	; 调试状态下堆栈基地址(栈底, 从这个位置�
 BaseOfStack		equ	07c00h	; Boot状态下堆栈基地址(栈底, 从这个位置向低地址生长)
 %endif
 
-BaseOfLoader		equ	09000h	; LOADER.BIN 被加载到的位置 ----  段地址
-OffsetOfLoader		equ	0100h	; LOADER.BIN 被加载到的位置 ---- 偏移地址
-
-RootDirSectors		equ	14	; 根目录占用空间
-SectorNoOfRootDirectory	equ	19	; Root Directory 的第一个扇区号
-SectorNoOfFAT1		equ	1	; FAT1 的第一个扇区号 = BPB_RsvdSecCnt
-DeltaSectorNo		equ	17	; DeltaSectorNo = BPB_RsvdSecCnt + (BPB_NumFATs * FATSz) - 2
-					; 文件的开始Sector号 = DirEntry中的开始Sector号 + 根目录占用Sector数目 + DeltaSectorNo
+%include	"load.inc"
 ;================================================================================================
 
 	jmp short LABEL_START		; Start to boot.
 	nop				; 这个 nop 不可少
 
-	; 下面是 FAT12 磁盘的头
-	BS_OEMName	DB 'ForrestY'	; OEM String, 必须 8 个字节
-	BPB_BytsPerSec	DW 512		; 每扇区字节数
-	BPB_SecPerClus	DB 1		; 每簇多少扇区
-	BPB_RsvdSecCnt	DW 1		; Boot 记录占用多少扇区
-	BPB_NumFATs	DB 2		; 共有多少 FAT 表
-	BPB_RootEntCnt	DW 224		; 根目录文件数最大值
-	BPB_TotSec16	DW 2880		; 逻辑扇区总数
-	BPB_Media	DB 0xF0		; 媒体描述符
-	BPB_FATSz16	DW 9		; 每FAT扇区数
-	BPB_SecPerTrk	DW 18		; 每磁道扇区数
-	BPB_NumHeads	DW 2		; 磁头数(面数)
-	BPB_HiddSec	DD 0		; 隐藏扇区数
-	BPB_TotSec32	DD 0		; 如果 wTotalSectorCount 是 0 由这个值记录扇区数
-	BS_DrvNum	DB 0		; 中断 13 的驱动器号
-	BS_Reserved1	DB 0		; 未使用
-	BS_BootSig	DB 29h		; 扩展引导标记 (29h)
-	BS_VolID	DD 0		; 卷序列号
-	BS_VolLab	DB 'OrangeS0.02'; 卷标, 必须 11 个字节
-	BS_FileSysType	DB 'FAT12   '	; 文件系统类型, 必须 8个字节  
+; 下面是 FAT12 磁盘的头, 之所以包含它是因为下面用到了磁盘的一些信息
+%include	"fat12hdr.inc"
 
 LABEL_START:	
 	mov	ax, cs
@@ -87,9 +69,9 @@ LABEL_SEARCH_IN_ROOT_DIR_BEGIN:
 	cld
 	mov	dx, 10h
 LABEL_SEARCH_FOR_LOADERBIN:
-	cmp	dx, 0										; ┓循环次数控制,
+	cmp	dx, 0					; ┓循环次数控制,
 	jz	LABEL_GOTO_NEXT_SECTOR_IN_ROOT_DIR	; ┣如果已经读完了一个 Sector,
-	dec	dx											; ┛就跳到下一个 Sector
+	dec	dx					; ┛就跳到下一个 Sector
 	mov	cx, 11
 LABEL_CMP_FILENAME:
 	cmp	cx, 0
@@ -105,9 +87,9 @@ LABEL_GO_ON:
 	jmp	LABEL_CMP_FILENAME	;	继续循环
 
 LABEL_DIFFERENT:
-	and	di, 0FFE0h						; else ┓	di &= E0 为了让它指向本条目开头
-	add	di, 20h							;     ┃
-	mov	si, LoaderFileName					;     ┣ di += 20h  下一个目录条目
+	and	di, 0FFE0h		; else ┓	di &= E0 为了让它指向本条目开头
+	add	di, 20h			;      ┃
+	mov	si, LoaderFileName	;      ┣ di += 20h  下一个目录条目
 	jmp	LABEL_SEARCH_FOR_LOADERBIN;    ┛
 
 LABEL_GOTO_NEXT_SECTOR_IN_ROOT_DIR:
@@ -131,21 +113,21 @@ LABEL_FILENAME_FOUND:			; 找到 LOADER.BIN 后便来到这里继续
 	mov	cx, word [es:di]
 	push	cx			; 保存此 Sector 在 FAT 中的序号
 	add	cx, ax
-	add	cx, DeltaSectorNo	; cl <- LOADER.BIN的起始扇区号(0-based)
+	add	cx, DeltaSectorNo	; 这句完成时 cl 里面变成 LOADER.BIN 的起始扇区号 (从 0 开始数的序号)
 	mov	ax, BaseOfLoader
 	mov	es, ax			; es <- BaseOfLoader
-	mov	bx, OffsetOfLoader	; bx <- OffsetOfLoader
+	mov	bx, OffsetOfLoader	; bx <- OffsetOfLoader	于是, es:bx = BaseOfLoader:OffsetOfLoader = BaseOfLoader * 10h + OffsetOfLoader
 	mov	ax, cx			; ax <- Sector 号
 
 LABEL_GOON_LOADING_FILE:
-	push	ax			; `.
-	push	bx			;  |
-	mov	ah, 0Eh			;  | 每读一个扇区就在 "Booting  " 后面
-	mov	al, '.'			;  | 打一个点, 形成这样的效果:
-	mov	bl, 0Fh			;  | Booting ......
-	int	10h			;  |
-	pop	bx			;  |
-	pop	ax			; /
+	push	ax			; ┓
+	push	bx			; ┃
+	mov	ah, 0Eh			; ┃ 每读一个扇区就在 "Booting  " 后面打一个点, 形成这样的效果:
+	mov	al, '.'			; ┃
+	mov	bl, 0Fh			; ┃ Booting ......
+	int	10h			; ┃
+	pop	bx			; ┃
+	pop	ax			; ┛
 
 	mov	cl, 1
 	call	ReadSector
@@ -165,9 +147,8 @@ LABEL_FILE_LOADED:
 	call	DispStr			; 显示字符串
 
 ; *****************************************************************************************************
-	jmp	BaseOfLoader:OffsetOfLoader	; 这一句正式跳转到已加载到内
-						; 存中的 LOADER.BIN 的开始处，
-						; 开始执行 LOADER.BIN 的代码。
+	jmp	BaseOfLoader:OffsetOfLoader	; 这一句正式跳转到已加载到内存中的 LOADER.BIN 的开始处
+						; 开始执行 LOADER.BIN 的代码
 						; Boot Sector 的使命到此结束
 ; *****************************************************************************************************
 
@@ -265,9 +246,9 @@ GetFATEntry:
 	push	es
 	push	bx
 	push	ax
-	mov	ax, BaseOfLoader; `.
-	sub	ax, 0100h	;  | 在 BaseOfLoader 后面留出 4K 空间用于存放 FAT
-	mov	es, ax		; /
+	mov	ax, BaseOfLoader	; ┓
+	sub	ax, 0100h		; ┣ 在 BaseOfLoader 后面留出 4K 空间用于存放 FAT
+	mov	es, ax			; ┛
 	pop	ax
 	mov	byte [bOdd], 0
 	mov	bx, 3
@@ -278,19 +259,15 @@ GetFATEntry:
 	jz	LABEL_EVEN
 	mov	byte [bOdd], 1
 LABEL_EVEN:;偶数
-	; 现在 ax 中是 FATEntry 在 FAT 中的偏移量,下面来
-	; 计算 FATEntry 在哪个扇区中(FAT占用不止一个扇区)
-	xor	dx, dx			
+	xor	dx, dx			; 现在 ax 中是 FATEntry 在 FAT 中的偏移量. 下面来计算 FATEntry 在哪个扇区中(FAT占用不止一个扇区)
 	mov	bx, [BPB_BytsPerSec]
-	div	bx ; dx:ax / BPB_BytsPerSec
-		   ;  ax <- 商 (FATEntry 所在的扇区相对于 FAT 的扇区号)
-		   ;  dx <- 余数 (FATEntry 在扇区内的偏移)
+	div	bx			; dx:ax / BPB_BytsPerSec  ==>	ax <- 商   (FATEntry 所在的扇区相对于 FAT 来说的扇区号)
+					;				dx <- 余数 (FATEntry 在扇区内的偏移)。
 	push	dx
-	mov	bx, 0 ; bx <- 0 于是, es:bx = (BaseOfLoader - 100):00
-	add	ax, SectorNoOfFAT1 ; 此句之后的 ax 就是 FATEntry 所在的扇区号
+	mov	bx, 0			; bx <- 0	于是, es:bx = (BaseOfLoader - 100):00 = (BaseOfLoader - 100) * 10h
+	add	ax, SectorNoOfFAT1	; 此句执行之后的 ax 就是 FATEntry 所在的扇区号
 	mov	cl, 2
-	call	ReadSector ; 读取 FATEntry 所在的扇区, 一次读两个, 避免在边界
-			   ; 发生错误, 因为一个 FATEntry 可能跨越两个扇区
+	call	ReadSector		; 读取 FATEntry 所在的扇区, 一次读两个, 避免在边界发生错误, 因为一个 FATEntry 可能跨越两个扇区
 	pop	dx
 	add	bx, dx
 	mov	ax, [es:bx]
