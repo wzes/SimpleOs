@@ -223,6 +223,7 @@ PUBLIC void select_console(int nr_console)
 {
     if ((nr_console < 0) || (nr_console >= NR_CONSOLES)) return;
 
+  //  current_console = nr_console;
     flush(&console_table[current_console = nr_console]);
 }
 

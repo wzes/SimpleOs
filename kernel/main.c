@@ -127,18 +127,8 @@ PUBLIC int get_ticks()
 }
 
 
-/*======================================================================*
-                               TestA
- *======================================================================*/
-
-//A进程
-void TestA()
-{
-    //0号终端
-    char tty_name[] = "/dev_tty0";
-    //char username[128];
-    //char password[128];
-    int fd;
+void shell(char *tty_name){
+	 int fd;
 
     //int isLogin = 0;
 
@@ -154,8 +144,17 @@ void TestA()
     assert(fd_stdout == 1);
 
     clear();
-    printl("Aqunux v1.0.0 tty0\n\n");
+   
+   if(strcmp(tty_name, "/dev_tty0")==0){
+   	printf("                        ==================================\n");
+    printf("                                   Aquinux v1.0.0             \n");
+    printf("                                 Kernel on Orange's \n\n");
+    printf("                                     Welcome !\n");
+    printf("                        ==================================\n");
+   }
+   	
 
+   
     while (1) {  
         //必须要清空数组
         clearArr(rdbuf, 128);
@@ -375,6 +374,20 @@ void TestA()
         else
             printf("Command not found, please check!\n");
     }
+}
+
+/*======================================================================*
+                               TestA
+ *======================================================================*/
+
+//A进程
+void TestA()
+{
+    //0号终端
+    char tty_name[] = "/dev_tty0";
+    //char username[128];
+    //char password[128];
+   shell(tty_name);
 
 }
 
@@ -385,7 +398,29 @@ void TestA()
 //B进程
 void TestB()
 {
-    spin("TestB");
+	char tty_name[] = "/dev_tty1";
+	shell(tty_name);
+	/*int fd_stdin  = open(tty_name, O_RDWR);
+	assert(fd_stdin  == 0);
+	int fd_stdout = open(tty_name, O_RDWR);
+	assert(fd_stdout == 1);
+
+	char rdbuf[128];
+
+	while (1) {
+		printf("$ ");
+		int r = read(fd_stdin, rdbuf, 70);
+		rdbuf[r] = 0;
+
+		if (strcmp(rdbuf, "hello") == 0)
+			printf("hello world!\n");
+		else
+			if (rdbuf[0])
+				printf("{%s}\n", rdbuf);
+	}*/
+
+	assert(0); /* never arrive here */
+   // spin("TestB");
 }
 
 //C进程
@@ -453,20 +488,25 @@ void printTitle()
 {
     clear(); 	
 
-    disp_color_str("dddddddddddddddd\n", 0x9);
-
-    printf("                        ==================================\n");
-    printf("                                   Sweetinux v1.0.0             \n");
-    printf("                                 Kernel on Orange's \n\n");
-    printf("                                     Welcome !\n");
-    printf("                        ==================================\n");
+  //  disp_color_str("dddddddddddddddd\n", 0x9);
+    if(current_console==0){
+    	printf("                        ==================================\n");
+    	printf("                                   Aquinux v1.0.0             \n");
+    	printf("                                 Kernel on Orange's \n\n");
+    	printf("                                     Welcome !\n");
+    	printf("                        ==================================\n");
+    }
+    else{
+    	printf("[TTY #%d]\n", current_console);
+    }
+    
 }
 
 void clear()
-{
-    clear_screen(0,console_table[current_console].cursor);
-    console_table[current_console].crtc_start = 0;
-    console_table[current_console].cursor = 0;
+{	
+	clear_screen(0,console_table[current_console].cursor);
+    console_table[current_console].crtc_start = console_table[current_console].orig;
+    console_table[current_console].cursor = console_table[current_console].orig;    
 }
 
 void doTest(char *path)
@@ -577,6 +617,7 @@ void help()
     printf("9. cp          [SOURCE] [DEST]   : Copy a file\n");
     printf("10. mv          [SOURCE] [DEST]   : Move a file\n");   
     printf("11. encrypt     [file]            : Encrypt a file\n");
+    printf("%d", current_console);
   //  printf("17. game                          : 2048 Game\n");
     printf("==============================================================================\n");
 }

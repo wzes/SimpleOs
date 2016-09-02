@@ -155,8 +155,12 @@ PRIVATE void init_tty(TTY* tty)
  *****************************************************************************/
 PUBLIC void in_process(TTY* tty, u32 key)
 {
+    int raw_code2 = key & MASK_RAW;
+   // assert(raw_code2!=ENTER);
     if (!(key & FLAG_EXT)) {
+        // assert(0!=0);
         put_key(tty, key);
+       
     }
     else {
         int raw_code = key & MASK_RAW;
