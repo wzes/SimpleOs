@@ -66,6 +66,9 @@ PUBLIC void task_fs()
         case LS:
             fs_msg.RETVAL = do_ls();
             break;
+        case MKDIR:
+            fs_msg.RETVAL = do_mkdir();
+            break;
         /* case LSEEK: */
         /*  fs_msg.OFFSET = do_lseek(); */
         /*  break; */
@@ -97,6 +100,7 @@ PUBLIC void task_fs()
         /* msg_name[STAT]   = "STAT"; */
 
         switch (msgtype) {
+        case MKDIR:
         case LS:
         case CLOSE:
         case UNLINK:

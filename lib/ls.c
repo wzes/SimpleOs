@@ -26,10 +26,15 @@
  * Write to a file descriptor.
  *
  *****************************************************************************/
-PUBLIC int ls()
+PUBLIC int ls(char *pathname)
 {
     MESSAGE msg;
     msg.type = LS;
+
+
+	msg.PATHNAME	= (void*)pathname;
+	msg.FLAGS	= 0;
+	msg.NAME_LEN	= strlen(pathname);
 
     send_recv(BOTH, TASK_FS, &msg);
 
